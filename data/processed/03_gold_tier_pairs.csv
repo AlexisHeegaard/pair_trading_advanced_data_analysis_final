@@ -1,0 +1,6 @@
+Stock1,Stock2,P-Value,Cluster,Sector,Hedge_Ratio,Half_Life,Hurst_Exponent,Zero_Crossings
+CMS,DUK,0.03037,utilities_0,utilities,0.5065228241462377,19.04,0.2871,83
+AME,ITW,0.00124,industrials_1,industrials,0.9271058514784946,25.82,0.3139,108
+FITB,PNC,0.04318,financials_2,financials,0.2358656317674438,27.6,0.3182,70
+AIG,CB,0.06507,financials_0,financials,0.2690310085251405,24.36,0.3454,66
+MS,STT,0.00099,financials_2,financials,1.5669897243366837,29.01,0.3526,69
