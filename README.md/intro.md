@@ -13,7 +13,4 @@ The aim of this project is to test and optimize a pair trading strategy using Ma
 **PCA** we apply principal component analysis to extract 5 latent factors driving market movements, filtering out idiosyncratic noise
 **DBSCAN** density-based spatial clustering identifies "natural" clusters of assets without forcing noise point into a group
 
-### dynamic state-space Modelling
-**klaman filter** to overcome the "ghosting effect" of fixed lookback windows, we employ a linear kalman filter to estimate the hidden hedge ratio recursively
-
 
