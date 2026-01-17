@@ -7,89 +7,189 @@ class PortfolioManager:
     Complementary to StrategyEngine (which handles signal generation and win rates).
     """
 
-    def __init__(self, strategy_engine):
+    def __init__(self, strategy_engine, total_capital=1000, max_positions=5):
         """
         Initialize using the data and configuration already loaded by the Engine.
         
         Args:
             strategy_engine (StrategyEngine): Initialized instance of StrategyEngine.
+            total_capital (float): Starting portfolio value.
+            max_positions (int): Maximum simultaneous open positions.
         """
-        # Reuse the dataframe and threshold from the Engine to avoid redundancy
         self.df = strategy_engine.df.copy()
         self.z_threshold = strategy_engine.z_threshold
+        self.total_capital = total_capital
+        self.max_positions = max_positions
+        
+        # Realistic cost parameters
+        self.slippage_pct = 0.001       # 0.1% slippage per trade
+        self.spread_pct = 0.0005        # 0.05% bid-ask spread
+        self.short_borrow_rate = 0.02   # 2% annual borrowing cost
 
-    def calculate_equity_curve(self, capital_per_trade=1000, cost_per_trade=2.0):
+    def calculate_equity_curve(self, capital_per_trade=100, cost_per_trade=2.0, hold_period=10):
         """
         Simulates the portfolio equity curve based on Real Returns.
         
         Args:
-            capital_per_trade (float): Capital allocated per trade (e.g., $1000).
-            cost_per_trade (float): Total transaction cost per trade (Commission + Slippage).
+            capital_per_trade (float): Capital allocated per trade.
+            cost_per_trade (float): Base transaction cost per trade (commission).
+            hold_period (int): Days to hold each position.
             
         Returns:
             pd.DataFrame: Daily aggregated equity curve.
         """
-        print(f"\n💰 SIMULATING REAL PORTFOLIO (Capital: ${capital_per_trade}, Cost: ${cost_per_trade})")
+        print(f"\nSIMULATING PORTFOLIO")
+        print(f"   Starting Capital: ${self.total_capital}")
+        print(f"   Capital Per Trade: ${capital_per_trade}")
+        print(f"   Commission: ${cost_per_trade}")
+        print(f"   Slippage: {self.slippage_pct:.2%}")
+        print(f"   Spread: {self.spread_pct:.2%}")
+        print(f"   Short Borrow Rate: {self.short_borrow_rate:.2%} annual")
+        print(f"   Max Positions: {self.max_positions}")
+        print(f"   Hold Period: {hold_period} days")
+
+        # Sort data by date
+        sim_df = self.df.sort_index()
         
-        sim_df = self.df.copy()
+        # Track state for each strategy
+        strategies = ['LSTM', 'Hybrid']
+        results = {s: self._run_simulation(sim_df, s, capital_per_trade, 
+                                            cost_per_trade, hold_period) 
+                   for s in strategies}
+        
+        # Combine results
+        equity_df = pd.DataFrame({
+            'Equity_LSTM': results['LSTM']['equity'],
+            'Equity_Hybrid': results['Hybrid']['equity'],
+            'Positions_LSTM': results['LSTM']['positions'],
+            'Positions_Hybrid': results['Hybrid']['positions']
+        })
+        
+        # Print summary
+        for s in strategies:
+            final_equity = results[s]['equity'].iloc[-1]
+            total_return = (final_equity - self.total_capital) / self.total_capital
+            print(f"\n   {s} Results:")
+            print(f"      Final Equity: ${final_equity:,.2f}")
+            print(f"      Total Return: {total_return:.2%}")
+            print(f"      Trades Executed: {results[s]['trade_count']}")
+            print(f"      Trades Skipped (no capital): {results[s]['skipped']}")
+        
+        return equity_df
 
-        # 1. REPLICATE SIGNAL LOGIC (Consistent with StrategyEngine)
-        # Z-Score Triggers
-        long_condition = sim_df['Z_Score'] < -self.z_threshold
-        short_condition = sim_df['Z_Score'] > self.z_threshold
+    def _add_trading_days(self, start_date, days):
+        """Calculate close date skipping weekends."""
+        current = start_date
+        added = 0
+        while added < days:
+            current += pd.Timedelta(days=1)
+            if current.weekday() < 5:  # Monday=0 to Friday=4
+                added += 1
+        return current
 
-        # LSTM Filters
-        # Note: StrategyEngine defines a trade where (Trigger == True) AND (Pred == 1/0)
-        lstm_long = long_condition & (sim_df['LSTM_Pred'] == 1)
-        lstm_short = short_condition & (sim_df['LSTM_Pred'] == 0)
-
-        # Hybrid Filters (Consensus)
-        hybrid_long = lstm_long & (sim_df['Ridge_Pred'] == 1)
-        hybrid_short = lstm_short & (sim_df['Ridge_Pred'] == 0)
-
-        # 2. DEFINE P&L LOGIC (Real Returns - Costs)
-        def get_pnl_series(long_mask, short_mask):
-            pnl = pd.Series(0.0, index=sim_df.index)
+    def _run_simulation(self, sim_df, strategy, capital_per_trade, cost_per_trade, hold_period):
+        """
+        Internal method to run simulation for a single strategy.
+        
+        Args:
+            sim_df: Sorted DataFrame with predictions
+            strategy: 'LSTM' or 'Hybrid'
+            capital_per_trade: Amount per trade
+            cost_per_trade: Base commission cost
+            hold_period: Days to hold position
             
-            # P&L = (Capital * Target_Return) - Cost
-            # Note: Target_Return is the 10-day forward return magnitude.
-            # If Long and Direction=1 (Up), we Win.
-            # If Long and Direction=0 (Down), we Lose.
+        Returns:
+            dict: equity series, position count series, trade stats
+        """
+        # State tracking
+        equity = self.total_capital
+        available_capital = self.total_capital
+        open_positions = []
+        
+        # Results tracking
+        equity_history = []
+        position_history = []
+        trade_count = 0
+        skipped_count = 0
+        
+        for date, row in sim_df.iterrows():
             
-            # Long Trades
-            # We profit if Direction is 1, lose if 0.
-            # We assume 'Target_Return' is absolute magnitude or aligned with direction.
-            # Standard assumption: Return is the % change. 
-            # If we bought, PnL is Return.
-            pnl.loc[long_mask] = np.where(
-                sim_df.loc[long_mask, 'Target_Direction'] == 1,
-                (capital_per_trade * sim_df.loc[long_mask, 'Target_Return']) - cost_per_trade,
-                (capital_per_trade * -sim_df.loc[long_mask, 'Target_Return']) - cost_per_trade
-            )
+            # 1. CLOSE EXPIRED POSITIONS
+            for pos in open_positions[:]:
+                if date >= pos['close_date']:
+                    available_capital += pos['invested'] + pos['pnl']
+                    equity += pos['pnl']
+                    open_positions.remove(pos)
             
-            # Short Trades 
-            # We profit if Direction is 0 (Price went down).
-            pnl.loc[short_mask] = np.where(
-                sim_df.loc[short_mask, 'Target_Direction'] == 0,
-                (capital_per_trade * sim_df.loc[short_mask, 'Target_Return']) - cost_per_trade,
-                (capital_per_trade * -sim_df.loc[short_mask, 'Target_Return']) - cost_per_trade
-            )
-            return pnl
-
-        # 3. CALCULATE & AGGREGATE
-        sim_df['LSTM_Pnl'] = get_pnl_series(lstm_long, lstm_short)
-        sim_df['Hybrid_Pnl'] = get_pnl_series(hybrid_long, hybrid_short)
-
-        # Group by Date to aggregate portfolio performance across all pairs
-        daily_results = sim_df.groupby(sim_df.index)[['LSTM_Pnl', 'Hybrid_Pnl']].sum()
-
-        # Cumulative Sum
-        daily_results['Equity_LSTM'] = daily_results['LSTM_Pnl'].cumsum()
-        daily_results['Equity_Hybrid'] = daily_results['Hybrid_Pnl'].cumsum()
-
-        # Filter active days
-        active_days = daily_results[
-            (daily_results['Equity_LSTM'] != 0) | (daily_results['Equity_Hybrid'] != 0)
-        ].copy()
-
-        return active_days
+            # 2. CHECK FOR SIGNALS
+            z = row['Z_Score']
+            
+            if strategy == 'LSTM':
+                long_signal = (z < -self.z_threshold) and (row['LSTM_Pred'] == 1)
+                short_signal = (z > self.z_threshold) and (row['LSTM_Pred'] == 0)
+            else:  # Hybrid
+                long_signal = (z < -self.z_threshold) and (row['LSTM_Pred'] == 1) and (row['Ridge_Pred'] == 1)
+                short_signal = (z > self.z_threshold) and (row['LSTM_Pred'] == 0) and (row['Ridge_Pred'] == 0)
+            
+            has_signal = long_signal or short_signal
+            
+            # 3. EXECUTE IF CONSTRAINTS MET
+            if has_signal:
+                can_trade = (
+                    len(open_positions) < self.max_positions and
+                    available_capital >= capital_per_trade * 1.1  # Buffer for costs
+                )
+                
+                if can_trade:
+                    # CALCULATE REALISTIC COSTS
+                    slippage_cost = capital_per_trade * self.slippage_pct
+                    spread_cost = capital_per_trade * self.spread_pct
+                    total_cost = cost_per_trade + slippage_cost + spread_cost
+                    
+                    # Add borrowing cost for short positions
+                    if short_signal:
+                        borrow_cost = capital_per_trade * (self.short_borrow_rate * hold_period / 365)
+                        total_cost += borrow_cost
+                    
+                    # Deduct capital and costs
+                    available_capital -= (capital_per_trade + total_cost)
+                    equity -= total_cost
+                    
+                    # Calculate P&L based on actual target return
+                    target_return = row['Target_Return']
+                    target_direction = row['Target_Direction']
+                    
+                    if long_signal:
+                        if target_direction == 1:
+                            pnl = capital_per_trade * abs(target_return)
+                        else:
+                            pnl = -capital_per_trade * abs(target_return)
+                    else:
+                        if target_direction == 0:
+                            pnl = capital_per_trade * abs(target_return)
+                        else:
+                            pnl = -capital_per_trade * abs(target_return)
+                    
+                    # Record position (skip weekends for close date)
+                    close_date = self._add_trading_days(date, hold_period)
+                    
+                    open_positions.append({
+                        'close_date': close_date,
+                        'invested': capital_per_trade,
+                        'pnl': pnl
+                    })
+                    
+                    trade_count += 1
+                else:
+                    skipped_count += 1
+            
+            # 4. RECORD STATE
+            equity_history.append(equity)
+            position_history.append(len(open_positions))
+        
+        return {
+            'equity': pd.Series(equity_history, index=sim_df.index),
+            'positions': pd.Series(position_history, index=sim_df.index),
+            'trade_count': trade_count,
+            'skipped': skipped_count
+        }

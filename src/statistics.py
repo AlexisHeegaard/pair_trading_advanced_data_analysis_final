@@ -9,7 +9,7 @@ from sklearn.preprocessing import Normalizer
 import statsmodels.api as sm
 from statsmodels.tsa.stattools import coint
 
-#section 1 --> tradability metrics for pairs
+#section 1 tradability metrics for pairs
 def calculate_hurst(ts):
     #calculates the hurst exponant to test for mean reversion
     # H < 0.5 = Mean Reverting (The series wants to return to the average)
@@ -28,7 +28,7 @@ def calculate_tradability_metrics(price_data, stock_a, stock_b):
     Includes robust error handling to identify where it fails.
     """
     try:
-        # --- 1. GET DATA ---
+        # 1. GET DATA 
         s1 = price_data[stock_a]
         s2 = price_data[stock_b]
         
@@ -40,8 +40,8 @@ def calculate_tradability_metrics(price_data, stock_a, stock_b):
         s1 = df.iloc[:, 0]
         s2 = df.iloc[:, 1]
 
-        # --- 2. HEDGE RATIO ---
-        # We assume spread = s1 - (beta * s2)
+        # 2. HEDGE RATIO ESTIMATION USING OLS REGRESSION
+        # assume spread = s1 - (beta * s2)
         x = sm.add_constant(s2)
         model = sm.OLS(s1, x).fit()
         
@@ -52,10 +52,10 @@ def calculate_tradability_metrics(price_data, stock_a, stock_b):
         # Use ILOC to get the 2nd parameter (the slope), ignoring the name
         hedge_ratio = model.params.iloc[1]
 
-        # --- 3. CONSTRUCT SPREAD ---
+        # 3. CONSTRUCT SPREAD 
         spread = s1 - (hedge_ratio * s2)
 
-        # --- 4. HALF-LIFE (The likely crash point) ---
+        # 4. HALF-LIFE (The likely crash point) 
         spread_lag = spread.shift(1)
         spread_ret = spread - spread_lag
         
@@ -80,10 +80,10 @@ def calculate_tradability_metrics(price_data, stock_a, stock_b):
         else:
             half_life = -np.log(2) / lambda_param
 
-        # --- 5. HURST EXPONENT ---
+        # 5. HURST EXPONENT 
         hurst = calculate_hurst(spread.values)
 
-        # --- 6. ZERO CROSSINGS ---
+        # 6. ZERO CROSSINGS
         centered_spread = spread - spread.mean()
         # Count how many times the sign changes
         zero_crossings = len(np.where(np.diff(np.sign(centered_spread)))[0])
@@ -101,9 +101,9 @@ def calculate_tradability_metrics(price_data, stock_a, stock_b):
         # print(f"DEBUG: Failed on {stock_a}-{stock_b}: {e}")
         return None
 
-#section 2 --> unsupervised learning used in 01_pair_search
+#section 2 unsupervised learning used in 01_pair_search
 
-def get_clusters(returns_df, n_components=5, eps=0.25):
+def get_clusters(returns_df, n_components=6, eps=0.35):
     #perform PCA to extract latent factors
     #then cluster stocks using DBSCAN
 
@@ -171,8 +171,8 @@ def find_cointegrated_pairs(price_data, clusters_df):
                 try:
                     score, pvalue, _ = coint(clean_s1, clean_s2)
                     
-                    # --- CHANGE 2: RELAXED P-VALUE ---
-                    # Changed from 0.05 to 0.10 to find "Good enough" pairs
+                    # 
+                    # relax p-value from 005 to 0.1 to capture more pairs
                     if pvalue < 0.10:
                         pairs.append({
                             'Stock A': tickers[i], 

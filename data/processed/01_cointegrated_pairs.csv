@@ -13,7 +13,7 @@ CL,PEP,0.01037,consumer_staples_2,consumer_staples
 CL,PG,0.01307,consumer_staples_2,consumer_staples
 KMB,MDLZ,0.08064,consumer_staples_2,consumer_staples
 KMB,KO,0.09025,consumer_staples_2,consumer_staples
-KMB,PEP,0.07643,consumer_staples_2,consumer_staples
+KMB,PEP,0.07642,consumer_staples_2,consumer_staples
 COP,EOG,0.01752,energy_1,energy
 AIG,CB,0.06507,financials_0,financials
 AIG,HIG,0.02105,financials_0,financials
@@ -49,7 +49,7 @@ BAC,PNC,0.01934,financials_2,financials
 TFC,PNC,0.09234,financials_2,financials
 USB,PNC,0.01024,financials_2,financials
 WFC,PNC,0.07723,financials_2,financials
-GPN,V,0.07609,financials_3,financials
+GPN,V,0.07608,financials_3,financials
 FISV,V,0.00693,financials_3,financials
 FISV,MA,0.05335,financials_3,financials
 V,MA,0.07494,financials_3,financials
@@ -80,7 +80,7 @@ CSX,CARR,0.08905,industrials_1,industrials
 AME,ITW,0.00124,industrials_1,industrials
 ITW,TT,0.06862,industrials_1,industrials
 EMR,PCAR,0.06706,industrials_3,industrials
-EMR,CAT,0.07583,industrials_3,industrials
+EMR,CAT,0.07584,industrials_3,industrials
 UAL,LUV,0.07819,industrials_5,industrials
 ACN,NTAP,0.00419,information_technology_0,information_technology
 AKAM,NTAP,0.07366,information_technology_0,information_technology
@@ -120,7 +120,7 @@ ETR,EXC,0.09979,utilities_0,utilities
 ETR,FE,0.02648,utilities_0,utilities
 ETR,NI,0.09772,utilities_0,utilities
 ETR,XEL,0.04767,utilities_0,utilities
-EXC,NI,0.02882,utilities_0,utilities
+EXC,NI,0.02881,utilities_0,utilities
 FE,NI,0.02666,utilities_0,utilities
 FE,XEL,0.05047,utilities_0,utilities
 PEG,SO,0.04516,utilities_0,utilities

@@ -1,5 +1,5 @@
 # TRADABILITY METRICS 
-## the tradability metrics function defined in statistics.py act as a quality-filter to determine ifv a statistically linked pair is actually profitable to trade in a real world scenario
+## the tradability metrics function defined in statistics.py act as a quality-filter to determine if a statistically linked pair is actually profitable to trade in a real world scenario
 
 # While cointegration informs about the existence of a relationship, these metrics determine if a relationship moves fast enough and consistently enough to be traded
 
