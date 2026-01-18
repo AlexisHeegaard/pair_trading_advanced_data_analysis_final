@@ -5,6 +5,7 @@ The aim of this project is to test and optimize a pair trading strategy using Ma
 
 ##Methodology & Statistical Reasoning
 ###Data Preprocessing
+
 **liquiditity filter** To ensure tradability, we discard the bottom 25% of stocks by average daily volume within each sector
 
 **data integrity** Assets with >10% missing data are removed, while remaining gaps are forward-filled

@@ -4,7 +4,8 @@ the tradability metrics function defined in statistics.py act as a quality-filte
 While cointegration informs about the existence of a relationship, these metrics determine if a relationship moves fast enough and consistently enough to be traded
 
 **Hurst Exponent H** 
-H measures the memeory of the spread to confirm it is truly mean-reverting
+
+H quantifies the memeory of the spread to confirm it is truly mean-reverting
 
 it calculates the variance of the spread scales over different time lags
 
@@ -12,11 +13,27 @@ H < 0.5 (mean reverting): it is the target, it means a move away from the mean i
 
 H > 0.5 (trending): with a high H the spread is a trend
 
-**half line**
 
+
+**half life**
+
+half life measures the amount time needed for the psread to revert halfway to its mean
+
+a short half life on a pair provides more trading opportunities
+Ideally, half life should equal your target holding period for a pair
+
+**zero crossing**
+
+zero crossing quantifies the number of time the spread crosses it mean during the observation period
+
+a high zero crossing means a more frequent oscillation around the mean, which provides more exit/entry opportunities for a pair
+
+
+**implementation**
 by combining these, move to a theoritical relationship to a practical strategy
 
 look for pairs that has low p-value(statistically significant cointegration), low Hurst (strong memory to return to the mean), short half line (high turnover of capital) and high zero crossing (frequent trading signals)
+
 
 
 
